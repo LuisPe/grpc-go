@@ -23,7 +23,7 @@ func main() {
 
 	c := calculatorpb.NewCalculatorServiceClient(cc)
 	// fmt.Printf("Create the client: %v", c)
-	doUnary(c)
+	// doUnary(c)
 
 	doServerStreaming(c)
 }
@@ -44,7 +44,7 @@ func doUnary(c calculatorpb.CalculatorServiceClient) {
 func doServerStreaming(c calculatorpb.CalculatorServiceClient) {
 	fmt.Println("Starting to do a PrimeDecomposition Server streaming RPC...")
 	req := &calculatorpb.PrimeNumberDecompositionRequest{
-		Number: 12,
+		Number: 16,
 	}
 	stream, err := c.PrimeNumberDecomposition(context.Background(), req)
 	if err != nil {
@@ -59,6 +59,6 @@ func doServerStreaming(c calculatorpb.CalculatorServiceClient) {
 		if err != nil {
 			log.Fatalf("error while calling PrimeDecomposition RPC: %v", err)
 		}
+		fmt.Println(res)
 	}
-
 }

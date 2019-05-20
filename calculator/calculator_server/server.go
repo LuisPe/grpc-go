@@ -27,7 +27,7 @@ func (*server) Sum(ctx context.Context, req *calculatorpb.SumRequest) (*calculat
 }
 
 func (*server) PrimeNumberDecomposition(req *calculatorpb.PrimeNumberDecompositionRequest, stream calculatorpb.CalculatorService_PrimeNumberDecompositionServer) error {
-	fmt.Printf("Recived PrimeNumberDecomposition RPC: %v", req)
+	fmt.Printf("Recived PrimeNumberDecomposition RPC: %v\n", req)
 	number := req.GetNumber()
 	divisor := int64(2)
 
@@ -39,7 +39,7 @@ func (*server) PrimeNumberDecomposition(req *calculatorpb.PrimeNumberDecompositi
 			number = number / divisor
 		} else {
 			divisor++
-			fmt.Printf("Divisor has increased to %v", divisor)
+			fmt.Printf("Divisor has increased to %v\n", divisor)
 		}
 	}
 	return nil
