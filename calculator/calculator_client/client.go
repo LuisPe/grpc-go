@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"github.com/luispe/grpc-go/calculator/calculatorpb"
 
@@ -26,7 +27,8 @@ func main() {
 	// doUnary(c)
 
 	// doServerStreaming(c)
-	doClientStreaming(c)
+	// doClientStreaming(c)
+	doBiDiStreaming(c)
 }
 
 func doUnary(c calculatorpb.CalculatorServiceClient) {
@@ -84,4 +86,42 @@ func doClientStreaming(c calculatorpb.CalculatorServiceClient) {
 		log.Fatalf("error while receiving response from ComputeAverage: %v", err)
 	}
 	fmt.Printf("ComputeAverage Response: %v\n", res.GetAverage())
+}
+
+func doBiDiStreaming(c calculatorpb.CalculatorServiceClient) {
+	fmt.Println("Starting to do FindMaximun a doBiDiStreaming Client streaming RPC...")
+	stream, err := c.FindMaximum(context.Background())
+	if err != nil {
+		log.Fatalf("Error while opening stream and calling FindMaximun: %v\n", err)
+	}
+	waitc := make(chan struct{})
+	// send goroutine
+	go func() {
+		numbers := []int32{4, 7, 2, 19, 3, 6, 34}
+		for _, number := range numbers {
+			fmt.Printf("Sending number: %v\n", number)
+			stream.Send(&calculatorpb.FindMaximumRequest{
+				Number: number,
+			})
+			time.Sleep(1000 * time.Millisecond)
+		}
+		stream.CloseSend()
+	}()
+	// receive goroutine
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("Problem while reading server stream: %v", err)
+				break
+			}
+			maximun := res.GetMaximun()
+			fmt.Println("Received a new maximun of...", maximun)
+		}
+		close(waitc)
+	}()
+	<-waitc
 }
