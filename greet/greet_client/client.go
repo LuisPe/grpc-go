@@ -20,7 +20,7 @@ func main() {
 
 	fmt.Println("Hello I'm a client")
 
-	tls := false
+	tls := true
 	opts := grpc.WithInsecure()
 	if tls {
 		certFile := "ssl/ca.crt" // Certificate Authority Trust certificate
@@ -41,13 +41,13 @@ func main() {
 	c := greetpb.NewGreetServiceClient(cc)
 	// fmt.Printf("Created client: %f", c)
 
-	// doUnary(c)
+	doUnary(c)
 	// doServerStreaming(c)
 	// doClientStreaming(c)
 	// doBiDiStreaming(c)
 
-	doUnaryWithDeadline(c, 5*time.Second) // should complete
-	doUnaryWithDeadline(c, 1*time.Second) // should timeout
+	// doUnaryWithDeadline(c, 5*time.Second) // should complete
+	// doUnaryWithDeadline(c, 1*time.Second) // should timeout
 }
 
 func doUnary(c greetpb.GreetServiceClient) {
