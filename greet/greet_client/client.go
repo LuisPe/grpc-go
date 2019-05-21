@@ -44,10 +44,10 @@ func main() {
 	// doUnary(c)
 	// doServerStreaming(c)
 	// doClientStreaming(c)
-	doBiDiStreaming(c)
+	// doBiDiStreaming(c)
 
-	// doUnaryWithDeadline(c, 5*time.Second) // should complete
-	// doUnaryWithDeadline(c, 1*time.Second) // should timeout
+	doUnaryWithDeadline(c, 5*time.Second) // should complete
+	doUnaryWithDeadline(c, 1*time.Second) // should timeout
 }
 
 func doUnary(c greetpb.GreetServiceClient) {
@@ -218,8 +218,8 @@ func doUnaryWithDeadline(c greetpb.GreetServiceClient, timeout time.Duration) {
 	fmt.Println("Starting to do a UnaryWithDeadline RPC...")
 	req := &greetpb.GreetWithDeadlineRequest{
 		Greeting: &greetpb.Greeting{
-			FirstName: "Roque",
-			LastName:  "Maarek",
+			FirstName: "LuisPe",
+			LastName:  "Toloy",
 		},
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
