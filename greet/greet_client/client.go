@@ -7,28 +7,47 @@ import (
 	"log"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+
 	"github.com/luispe/grpc-go/greet/greetpb"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
-	fmt.Println("Hello i'm a client")
-	cc, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
 
-	if err != nil {
-		log.Fatal("Cloud not connect: ", err)
+	fmt.Println("Hello I'm a client")
+
+	tls := false
+	opts := grpc.WithInsecure()
+	if tls {
+		certFile := "ssl/ca.crt" // Certificate Authority Trust certificate
+		creds, sslErr := credentials.NewClientTLSFromFile(certFile, "")
+		if sslErr != nil {
+			log.Fatalf("Error while loading CA trust certificate: %v", sslErr)
+			return
+		}
+		opts = grpc.WithTransportCredentials(creds)
 	}
 
+	cc, err := grpc.Dial("localhost:50051", opts)
+	if err != nil {
+		log.Fatalf("could not connect: %v", err)
+	}
 	defer cc.Close()
 
 	c := greetpb.NewGreetServiceClient(cc)
-	// fmt.Printf("Create the client: %v", c)
+	// fmt.Printf("Created client: %f", c)
+
 	// doUnary(c)
-
 	// doServerStreaming(c)
+	// doClientStreaming(c)
+	doBiDiStreaming(c)
 
-	doClientStreaming(c)
+	// doUnaryWithDeadline(c, 5*time.Second) // should complete
+	// doUnaryWithDeadline(c, 1*time.Second) // should timeout
 }
 
 func doUnary(c greetpb.GreetServiceClient) {
@@ -43,7 +62,7 @@ func doUnary(c greetpb.GreetServiceClient) {
 	if err != nil {
 		log.Fatalf("error while calling Greet RPC: %v", err)
 	}
-	log.Printf("response from greet: %v", res.Result)
+	log.Printf("Response from Greet: %v", res.Result)
 }
 
 func doServerStreaming(c greetpb.GreetServiceClient) {
@@ -71,44 +90,47 @@ func doServerStreaming(c greetpb.GreetServiceClient) {
 		}
 		log.Printf("Response from GreetManyTimes: %v", msg.GetResult())
 	}
+
 }
 
 func doClientStreaming(c greetpb.GreetServiceClient) {
 	fmt.Println("Starting to do a Client Streaming RPC...")
 
-	request := []*greetpb.LongGreetRequest{
+	requests := []*greetpb.LongGreetRequest{
 		&greetpb.LongGreetRequest{
 			Greeting: &greetpb.Greeting{
-				FirstName: "LuisPe",
+				FirstName: "Roque",
 			},
 		},
 		&greetpb.LongGreetRequest{
 			Greeting: &greetpb.Greeting{
-				FirstName: "Meri",
+				FirstName: "Fausti",
 			},
 		},
 		&greetpb.LongGreetRequest{
 			Greeting: &greetpb.Greeting{
-				FirstName: "Vitor",
+				FirstName: "Tina",
 			},
 		},
 		&greetpb.LongGreetRequest{
 			Greeting: &greetpb.Greeting{
-				FirstName: "Ani",
+				FirstName: "Male",
 			},
 		},
 		&greetpb.LongGreetRequest{
 			Greeting: &greetpb.Greeting{
-				FirstName: "Aixa",
+				FirstName: "Facu",
 			},
 		},
 	}
+
 	stream, err := c.LongGreet(context.Background())
 	if err != nil {
-		log.Fatalf("error while calling LongGreet RPC: %v", err)
+		log.Fatalf("error while calling LongGreet: %v", err)
 	}
-	// We iterate over our slice and send each message individually
-	for _, req := range request {
+
+	// we iterate over our slice and send each message individually
+	for _, req := range requests {
 		fmt.Printf("Sending req: %v\n", req)
 		stream.Send(req)
 		time.Sleep(1000 * time.Millisecond)
@@ -119,4 +141,104 @@ func doClientStreaming(c greetpb.GreetServiceClient) {
 		log.Fatalf("error while receiving response from LongGreet: %v", err)
 	}
 	fmt.Printf("LongGreet Response: %v\n", res)
+
+}
+
+func doBiDiStreaming(c greetpb.GreetServiceClient) {
+	fmt.Println("Starting to do a BiDi Streaming RPC...")
+
+	// we create a stream by invoking the client
+	stream, err := c.GreetEveryone(context.Background())
+	if err != nil {
+		log.Fatalf("Error while creating stream: %v", err)
+		return
+	}
+
+	requests := []*greetpb.GreetEveryoneRequest{
+		&greetpb.GreetEveryoneRequest{
+			Greeting: &greetpb.Greeting{
+				FirstName: "Roque",
+			},
+		},
+		&greetpb.GreetEveryoneRequest{
+			Greeting: &greetpb.Greeting{
+				FirstName: "Fausti",
+			},
+		},
+		&greetpb.GreetEveryoneRequest{
+			Greeting: &greetpb.Greeting{
+				FirstName: "Tina",
+			},
+		},
+		&greetpb.GreetEveryoneRequest{
+			Greeting: &greetpb.Greeting{
+				FirstName: "Male",
+			},
+		},
+		&greetpb.GreetEveryoneRequest{
+			Greeting: &greetpb.Greeting{
+				FirstName: "Facu",
+			},
+		},
+	}
+
+	waitc := make(chan struct{})
+	// we send a bunch of messages to the client (go routine)
+	go func() {
+		// function to send a bunch of messages
+		for _, req := range requests {
+			fmt.Printf("Sending message: %v\n", req)
+			stream.Send(req)
+			time.Sleep(1000 * time.Millisecond)
+		}
+		stream.CloseSend()
+	}()
+	// we receive a bunch of messages from the client (go routine)
+	go func() {
+		// function to receive a bunch of messages
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("Error while receiving: %v", err)
+				break
+			}
+			fmt.Printf("Received: %v\n", res.GetResult())
+		}
+		close(waitc)
+	}()
+
+	// block until everything is done
+	<-waitc
+}
+
+func doUnaryWithDeadline(c greetpb.GreetServiceClient, timeout time.Duration) {
+	fmt.Println("Starting to do a UnaryWithDeadline RPC...")
+	req := &greetpb.GreetWithDeadlineRequest{
+		Greeting: &greetpb.Greeting{
+			FirstName: "Roque",
+			LastName:  "Maarek",
+		},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	res, err := c.GreetWithDeadline(ctx, req)
+	if err != nil {
+
+		statusErr, ok := status.FromError(err)
+		if ok {
+			if statusErr.Code() == codes.DeadlineExceeded {
+				fmt.Println("Timeout was hit! Deadline was exceeded")
+			} else {
+				fmt.Printf("unexpected error: %v", statusErr)
+			}
+		} else {
+			log.Fatalf("error while calling GreetWithDeadline RPC: %v", err)
+		}
+		return
+	}
+	log.Printf("Response from GreetWithDeadline: %v", res.Result)
 }
